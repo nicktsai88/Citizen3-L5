@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=CwTeXYen:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        /* 公民科：法家/風格配色 */
+        /* 公民科：法家/衙門風格配色 */
         :root {
             --primary-color: #2c3e50;   /* 官服藍深色 (莊重) */
             --secondary-color: #c0392b; /* 硃批紅 (權威) */
@@ -165,7 +165,21 @@
             padding: 20px; margin-bottom: 20px; border-radius: 5px; box-shadow: 3px 3px 10px rgba(0,0,0,0.1);
         }
         .question-text { font-size: 1.8em; font-weight: 600; line-height: 1.6; color: #333; }
-        .question-img { max-width: 100%; max-height: 250px; width: auto; object-fit: contain; display: block; margin: 15px auto; border: 5px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.2); border-radius: 5px; background: #eee; }
+        
+        /* --- 修正：圖片樣式 (放寬高度限制並加入放大游標) --- */
+        .question-img { 
+            max-width: 100%; 
+            max-height: 50vh; /* 改為視窗高度的 50% 以容納合併圖片 */
+            width: auto; 
+            object-fit: contain; 
+            display: block; 
+            margin: 15px auto; 
+            border: 5px solid white; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2); 
+            border-radius: 5px; 
+            background: #eee;
+            cursor: zoom-in; /* 加入放大鏡游標 */
+        }
         
         .option-btn { 
             width: 100%; padding: 15px; margin: 10px 0; text-align: left; background: white; border: 2px solid #bdc3c7; border-radius: 10px; 
@@ -248,7 +262,7 @@
             <div id="question-container" class="fade-in">
                 <div class="question-box">
                     <div id="question-text" class="question-text">載入中...</div>
-                    <img id="question-image" class="question-img" style="display: none;" />
+                    <img id="question-image" class="question-img" style="display: none;" onclick="openCardModal(this.src, '題目附圖')" />
                 </div>
                 <ul id="options-list" style="list-style: none; padding: 0;"></ul>
             </div>
@@ -363,16 +377,41 @@
         function updateFavoriteButton() { let favs = getFavoriteBank(); let btn = document.getElementById('btn-favorite'); if (favs.length > 0) { btn.style.display = 'inline-block'; document.getElementById('favorite-count').innerText = favs.length; } else { btn.style.display = 'none'; } }
         function toggleFavorite() { const currentQ = currentQuizQuestions[currentQuestionIndex]; let favs = getFavoriteBank(); if (favs.includes(currentQ.id)) { favs = favs.filter(id => id !== currentQ.id); } else { favs.push(currentQ.id); } localStorage.setItem(getUserKey('favoriteBank'), JSON.stringify(favs)); updateFavoriteUI(); }
         function updateFavoriteUI() { const currentQ = currentQuizQuestions[currentQuestionIndex]; let favs = getFavoriteBank(); let btn = document.getElementById('btn-toggle-favorite'); if (favs.includes(currentQ.id)) { btn.innerText = '❤️'; } else { btn.innerText = '🤍'; } }
+        
+        // --- 修正：更嚴謹的判斷邏輯 ---
         function checkAnswer(btn, selectedOption, questionData) {
-            const buttons = document.querySelectorAll('.option-btn'); buttons.forEach(button => button.disabled = true); userAnswers[questionData.id] = selectedOption;
-            const correctCode = questionData.answer.substring(0, 1); 
-            const selectedCode = selectedOption.substring(0, 1); 
-            // 模糊比對
-            const isCorrect = (questionData.answer.includes(selectedCode) || selectedOption.includes(questionData.answer));
+            const buttons = document.querySelectorAll('.option-btn'); 
+            buttons.forEach(button => button.disabled = true); 
+            userAnswers[questionData.id] = selectedOption;
+
+            // --- 邏輯修正開始 ---
+            // 只要選項文字 (如 "(B) 民間團體") 是以 答案 (如 "(C)") 開頭，就是正確
+            // 使用 trim() 去除可能的空白，確保比對準確
+            const isCorrect = selectedOption.trim().startsWith(questionData.answer.trim());
+            // --- 邏輯修正結束 ---
             
-            if (isCorrect) { btn.classList.add('correct'); score++; audioCorrect.play().catch(e=>{}); confetti({ particleCount: 50, spread: 50, origin: { y: 0.7 }, colors: ['#D4AF37', '#8B0000'] }); if (isMistakeMode) removeFromMistakeBank(questionData.id); } else { btn.classList.add('wrong'); audioFail.play().catch(e=>{}); buttons.forEach(button => { if (button.innerText.includes(questionData.answer) || questionData.answer.includes(button.innerText.substring(0,1))) button.classList.add('correct'); }); addToMistakeBank(questionData.id); }
-            document.getElementById('explanation-text').innerText = questionData.explanation || "暫無解析"; document.getElementById('explanation').style.display = 'block'; document.getElementById('next-btn').style.display = 'block';
+            if (isCorrect) { 
+                btn.classList.add('correct'); 
+                score++; 
+                audioCorrect.play().catch(e=>{}); 
+                confetti({ particleCount: 50, spread: 50, origin: { y: 0.7 }, colors: ['#D4AF37', '#8B0000'] }); 
+                if (isMistakeMode) removeFromMistakeBank(questionData.id); 
+            } else { 
+                btn.classList.add('wrong'); 
+                audioFail.play().catch(e=>{}); 
+                // 標示出正確答案 (也使用相同的 startsWith 邏輯)
+                buttons.forEach(button => { 
+                    if (button.innerText.trim().startsWith(questionData.answer.trim())) { 
+                        button.classList.add('correct'); 
+                    }
+                }); 
+                addToMistakeBank(questionData.id); 
+            }
+            document.getElementById('explanation-text').innerText = questionData.explanation || "暫無解析"; 
+            document.getElementById('explanation').style.display = 'block'; 
+            document.getElementById('next-btn').style.display = 'block';
         }
+
         function nextQuestion() { currentQuestionIndex++; let progress = ((currentQuestionIndex) / currentQuizQuestions.length) * 100; document.getElementById('progress-bar').style.width = progress + "%"; if (currentQuestionIndex < currentQuizQuestions.length) loadQuestion(); else setTimeout(showResult, 500); }
         function showResult() {
             document.getElementById('quiz-content').style.display = 'none'; document.getElementById('score-box').style.display = 'block'; let finalScore = Math.round((score / currentQuizQuestions.length) * 100); document.getElementById('final-score').innerText = finalScore; document.getElementById('final-name').innerText = userName; let comment = "", progress = getProgress(), isPass = finalScore >= 80;
@@ -393,7 +432,13 @@
         function addToMistakeBank(id) { let mistakes = getMistakeBank(); if (!mistakes.includes(id)) { mistakes.push(id); localStorage.setItem(getUserKey('mistakeBank'), JSON.stringify(mistakes)); } }
         function removeFromMistakeBank(id) { let mistakes = getMistakeBank(); mistakes = mistakes.filter(mId => mId !== id); localStorage.setItem(getUserKey('mistakeBank'), JSON.stringify(mistakes)); }
         function toggleReview() { let reviewArea = document.getElementById('full-review-area'); reviewArea.style.display = (reviewArea.style.display === 'none') ? 'block' : 'none'; if (reviewArea.style.display === 'block') reviewArea.scrollIntoView({ behavior: 'smooth' }); }
-        function renderReviewList(elementId, questionsData, answersData) { let list = document.getElementById(elementId); list.innerHTML = ""; questionsData.forEach((q, index) => { let userAns = answersData[q.id], correctAns = q.answer; let isRight = (userAns && (userAns.includes(correctAns) || correctAns.includes(userAns.substring(0,1)))); let tagClass = isRight ? "tag-correct" : "tag-wrong", tagText = isRight ? "正確" : "錯誤"; let html = `<li class="review-item"><div style="font-weight:bold; margin-bottom:10px;"><span class="tag ${tagClass}">${tagText}</span> ${index + 1}. ${q.question}</div>`; if (q.image) html += `<img src="${q.image}" style="max-height:150px; display:block; margin:10px 0;">`; html += `<div style="font-size:0.9em; color:#555;">你的答案：${userAns || "未作答"} <br> 正確答案：<span style="color:#27ae60; font-weight:bold;">${correctAns}</span></div><div style="margin-top:5px; background:#ecf0f1; padding:8px; border-radius:5px; font-size:0.9em; color:#2c3e50;">💡 ${q.explanation || "暫無解析"}</div></li>`; list.innerHTML += html; }); }
+        
+        // --- 修正：回顧時也需要更新判斷邏輯 ---
+        function renderReviewList(elementId, questionsData, answersData) { let list = document.getElementById(elementId); list.innerHTML = ""; questionsData.forEach((q, index) => { let userAns = answersData[q.id], correctAns = q.answer; 
+            // 修正回顧邏輯
+            let isRight = (userAns && userAns.trim().startsWith(correctAns.trim())); 
+            let tagClass = isRight ? "tag-correct" : "tag-wrong", tagText = isRight ? "正確" : "錯誤"; let html = `<li class="review-item"><div style="font-weight:bold; margin-bottom:10px;"><span class="tag ${tagClass}">${tagText}</span> ${index + 1}. ${q.question}</div>`; if (q.image) html += `<img src="${q.image}" style="max-height:150px; display:block; margin:10px 0;">`; html += `<div style="font-size:0.9em; color:#555;">你的答案：${userAns || "未作答"} <br> 正確答案：<span style="color:#27ae60; font-weight:bold;">${correctAns}</span></div><div style="margin-top:5px; background:#ecf0f1; padding:8px; border-radius:5px; font-size:0.9em; color:#2c3e50;">💡 ${q.explanation || "暫無解析"}</div></li>`; list.innerHTML += html; }); }
+        
         function saveHistory(name, score, questionsData, answersData, modeName) { let history = JSON.parse(localStorage.getItem(getUserKey('quizHistory'))) || []; let record = { id: Date.now(), name: name, score: score, date: new Date().toLocaleString(), mode: modeName, answers: answersData, questionIds: questionsData.map(q => q.id) }; history.push(record); localStorage.setItem(getUserKey('quizHistory'), JSON.stringify(history)); }
         function showHistory() { document.querySelectorAll('.quiz-container > div').forEach(el => el.style.display = 'none'); document.getElementById('history-screen').style.display = 'block'; let history = JSON.parse(localStorage.getItem(getUserKey('quizHistory'))) || []; let list = document.getElementById('history-list'); list.innerHTML = ""; if(history.length === 0) list.innerHTML = "<li style='justify-content:center'>尚無史料記載</li>"; else { history.reverse().forEach(rec => { let li = document.createElement('li'); li.innerHTML = `<div class="history-info"><strong>${rec.mode}</strong> - <span style="color:${rec.score>=80?'#27ae60':'#c0392b'}">${rec.score}分</span><br><small style="color:gray">${rec.date}</small></div><div class="history-actions"><button class="btn btn-green btn-sm" onclick="replayHistory(${rec.id})">調閱</button><button class="btn btn-red btn-sm" onclick="deleteHistoryItem(${rec.id})">銷毀</button></div>`; list.appendChild(li); }); } }
         function deleteHistoryItem(id) { if(!confirm("確定要銷毀這份史料嗎？")) return; let history = JSON.parse(localStorage.getItem(getUserKey('quizHistory'))) || []; history = history.filter(r => r.id !== id); localStorage.setItem(getUserKey('quizHistory'), JSON.stringify(history)); showHistory(); }
