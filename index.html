@@ -402,14 +402,37 @@
         function toggleFavorite() { const currentQ = currentQuizQuestions[currentQuestionIndex]; let favs = getFavoriteBank(); if (favs.includes(currentQ.id)) { favs = favs.filter(id => id !== currentQ.id); } else { favs.push(currentQ.id); } localStorage.setItem(getUserKey('favoriteBank'), JSON.stringify(favs)); updateFavoriteUI(); }
         function updateFavoriteUI() { const currentQ = currentQuizQuestions[currentQuestionIndex]; let favs = getFavoriteBank(); let btn = document.getElementById('btn-toggle-favorite'); if (favs.includes(currentQ.id)) { btn.innerText = '❤️'; } else { btn.innerText = '🤍'; } }
         function checkAnswer(btn, selectedOption, questionData) {
-            const buttons = document.querySelectorAll('.option-btn'); buttons.forEach(button => button.disabled = true); userAnswers[questionData.id] = selectedOption;
-            const correctCode = questionData.answer.substring(0, 1); 
-            const selectedCode = selectedOption.substring(0, 1); 
-            const isCorrect = (questionData.answer.includes(selectedCode) || selectedOption.includes(questionData.answer));
+            const buttons = document.querySelectorAll('.option-btn'); 
+            buttons.forEach(button => button.disabled = true); 
+            userAnswers[questionData.id] = selectedOption;
+
+            // 🔥 關鍵修正：這裡改回使用 startsWith 來精準比對
+            // 確保比對的是 "(D)" 而不是只比對 "(" 
+            const isCorrect = selectedOption.trim().startsWith(questionData.answer.trim());
             
-            // 🔵 更改彩帶顏色為更現代的配色
-            if (isCorrect) { btn.classList.add('correct'); score++; audioCorrect.play().catch(e=>{}); confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#28a745', '#ffc107', '#0056b3'] }); if (isMistakeMode) removeFromMistakeBank(questionData.id); } else { btn.classList.add('wrong'); audioFail.play().catch(e=>{}); buttons.forEach(button => { if (button.innerText.includes(questionData.answer) || questionData.answer.includes(button.innerText.substring(0,1))) button.classList.add('correct'); }); addToMistakeBank(questionData.id); }
-            document.getElementById('explanation-text').innerText = questionData.explanation || "暫無解析"; document.getElementById('explanation').style.display = 'block'; document.getElementById('next-btn').style.display = 'block';
+            // 設定彩帶顏色 (公民風格配色)
+            if (isCorrect) { 
+                btn.classList.add('correct'); 
+                score++; 
+                audioCorrect.play().catch(e=>{}); 
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#28a745', '#ffc107', '#0056b3'] }); 
+                if (isMistakeMode) removeFromMistakeBank(questionData.id); 
+            } else { 
+                btn.classList.add('wrong'); 
+                audioFail.play().catch(e=>{}); 
+                
+                // 標示出正確答案 (綠色)
+                buttons.forEach(button => { 
+                    if (button.innerText.trim().startsWith(questionData.answer.trim())) {
+                         button.classList.add('correct'); 
+                    }
+                }); 
+                addToMistakeBank(questionData.id); 
+            }
+            
+            document.getElementById('explanation-text').innerText = questionData.explanation || "暫無解析"; 
+            document.getElementById('explanation').style.display = 'block'; 
+            document.getElementById('next-btn').style.display = 'block';
         }
         function nextQuestion() { currentQuestionIndex++; let progress = ((currentQuestionIndex) / currentQuizQuestions.length) * 100; document.getElementById('progress-bar').style.width = progress + "%"; if (currentQuestionIndex < currentQuizQuestions.length) loadQuestion(); else setTimeout(showResult, 500); }
         function showResult() {
